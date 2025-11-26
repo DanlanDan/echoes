@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
+import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
@@ -21,12 +22,23 @@ import {
   updateDoc, 
   increment 
 } from 'firebase/firestore';
-// KEEP THIS (Make sure it points to your file)
-import { db, auth } from './firebase';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged,
+  signInWithCustomToken
+} from 'firebase/auth';
+
 // --- Firebase Initialization ---
-// For the preview environment, we use the injected config.
-// When deploying to Render, replace this block with your actual Firebase config object:
-// const firebaseConfig = { apiKey: "...", authDomain: "...", ... };
+// Using the injected config for the preview environment
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Fix for "6 segments" error: Sanitize the appId to remove slashes
+const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const appId = rawAppId.replace(/[./]/g, '_'); 
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -36,7 +48,7 @@ const App = () => {
   const [isPosting, setIsPosting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // 1. Authentication (Required for Database Access)
+  // 1. Authentication
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -59,11 +71,8 @@ const App = () => {
   useEffect(() => {
     if (!user) return;
 
-    // We use the specific path required for this environment
+    // Use the sanitized appId in the path
     const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'thoughts');
-    
-    // Note: Simple query without complex orderBy first to avoid index errors in preview
-    // We will sort in memory for this demo
     const q = query(postsRef);
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -72,7 +81,7 @@ const App = () => {
         ...doc.data() 
       }));
       
-      // Sort in memory to handle timestamps correctly
+      // Sort in memory to avoid index errors in preview
       fetchedPosts.sort((a, b) => {
         const timeA = a.createdAt?.toMillis() || 0;
         const timeB = b.createdAt?.toMillis() || 0;
@@ -82,7 +91,12 @@ const App = () => {
       setPosts(fetchedPosts);
     }, (err) => {
       console.error("Fetch error:", err);
-      setErrorMsg("Unable to load posts.");
+      // More specific error handling
+      if (err.code === 'permission-denied') {
+        setErrorMsg("Permissions error. Check database rules.");
+      } else {
+        setErrorMsg("Unable to load posts.");
+      }
     });
 
     return () => unsubscribe();
@@ -102,7 +116,7 @@ const App = () => {
         likes: 0,
         createdAt: serverTimestamp(),
         color: getRandomColor(),
-        authorId: user.uid // Anonymous ID
+        authorId: user.uid
       });
       setNewPost("");
     } catch (error) {
@@ -147,7 +161,7 @@ const App = () => {
             <span className="font-bold text-xl tracking-tight">Echoes<span className="text-purple-500">.</span></span>
           </div>
           <div className="flex items-center gap-4">
-             {errorMsg && <span className="text-xs text-red-400">{errorMsg}</span>}
+             {errorMsg && <span className="text-xs text-red-400 font-mono">{errorMsg}</span>}
              <div className="text-xs font-medium bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
                {user ? 'Connected' : 'Connecting...'}
              </div>
@@ -224,7 +238,9 @@ const App = () => {
                     </span>
                     <span className="text-xs text-slate-600 flex items-center gap-1">
                       <Clock size={12} />
-                      {post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                      {post.createdAt && typeof post.createdAt.toDate === 'function' 
+                        ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) 
+                        : 'Just now'}
                     </span>
                   </div>
 

@@ -16,7 +16,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// --- THIS IS THE CRITICAL PART ---
-// We explicitly export these so App.jsx can use them!
+// Export the initialized services
 export const auth = getAuth(app);
 export const db = getFirestore(app);

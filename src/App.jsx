@@ -29,27 +29,12 @@ import {
   signInWithCustomToken
 } from 'firebase/auth';
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyAR_Xd-5hyEZ1R5IialgWU8rZrLmiFYjfo",
-  authDomain: "echoes-a2697.firebaseapp.com",
-  projectId: "echoes-a2697",
-  storageBucket: "echoes-a2697.firebasestorage.app",
-  messagingSenderId: "883654479012",
-  appId: "1:883654479012:web:16c44b0d43f9daf0ad6a31",
-  measurementId: "G-B9W1LELEXR"
-};
-
-// Initialize Firebase
+// --- Firebase Initialization (Preview Mode) ---
+// This block uses the chat environment's injected config.
+const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Fix for "Invalid collection reference" error in preview:
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -86,7 +71,6 @@ const App = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Use the sanitized appId in the path to prevent segment errors in preview
     const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'thoughts');
     const q = query(postsRef);
 
@@ -96,7 +80,6 @@ const App = () => {
         ...doc.data() 
       }));
       
-      // Sort in memory to avoid "missing index" errors in the preview environment
       fetchedPosts.sort((a, b) => {
         const timeA = a.createdAt?.toMillis() || 0;
         const timeB = b.createdAt?.toMillis() || 0;
@@ -166,8 +149,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-purple-500/30 font-sans">
-      
-      {/* --- Navbar --- */}
+      {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -183,10 +165,8 @@ const App = () => {
         </div>
       </nav>
 
-      {/* --- Main Content --- */}
+      {/* Main Content */}
       <main className="pt-24 pb-20 px-6 max-w-2xl mx-auto">
-        
-        {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Share the Untold.
@@ -196,7 +176,6 @@ const App = () => {
           </p>
         </div>
 
-        {/* Input Form */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 mb-12 focus-within:border-purple-500/50 transition-colors shadow-xl">
           <form onSubmit={handleSubmit}>
             <textarea
@@ -231,7 +210,6 @@ const App = () => {
           </form>
         </div>
 
-        {/* Feed */}
         <div className="space-y-6">
           <AnimatePresence>
             {posts.map((post) => (
@@ -242,9 +220,7 @@ const App = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="group relative bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition-all overflow-hidden"
               >
-                {/* Decorative Gradient Line */}
                 <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${post.color || 'from-purple-500 to-blue-500'} opacity-70`}></div>
-
                 <div className="pl-2">
                   <div className="flex justify-between items-start mb-3">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800">
@@ -252,17 +228,14 @@ const App = () => {
                     </span>
                     <span className="text-xs text-slate-600 flex items-center gap-1">
                       <Clock size={12} />
-                      {/* Safe check for Timestamp before calling toDate() */}
                       {post.createdAt && typeof post.createdAt.toDate === 'function' 
                         ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) 
                         : 'Just now'}
                     </span>
                   </div>
-
                   <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap mb-6">
                     {post.text}
                   </p>
-
                   <div className="flex items-center gap-6">
                     <button 
                       onClick={() => handleLike(post.id)}
@@ -271,7 +244,6 @@ const App = () => {
                       <Heart size={18} className={`transition-all ${post.likes > 0 ? 'text-pink-500 fill-pink-500/10' : 'group-hover/like:fill-pink-500'}`} />
                       <span className="text-sm font-medium">{post.likes || 0}</span>
                     </button>
-                    
                     <button className="flex items-center gap-2 text-slate-500 hover:text-purple-500 transition-colors">
                       <MessageSquare size={18} />
                       <span className="text-sm">Reply</span>
@@ -296,7 +268,6 @@ const App = () => {
              </div>
           )}
         </div>
-
       </main>
     </div>
   );

@@ -29,14 +29,29 @@ import {
   signInWithCustomToken
 } from 'firebase/auth';
 
-// --- Firebase Initialization ---
-// Using the injected config for the preview environment
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Fix for "6 segments" error: Sanitize the appId to remove slashes
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAR_Xd-5hyEZ1R5IialgWU8rZrLmiFYjfo",
+  authDomain: "echoes-a2697.firebaseapp.com",
+  projectId: "echoes-a2697",
+  storageBucket: "echoes-a2697.firebasestorage.app",
+  messagingSenderId: "883654479012",
+  appId: "1:883654479012:web:16c44b0d43f9daf0ad6a31",
+  measurementId: "G-B9W1LELEXR"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// Fix for "Invalid collection reference" error in preview:
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const appId = rawAppId.replace(/[./]/g, '_'); 
 
@@ -71,7 +86,7 @@ const App = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Use the sanitized appId in the path
+    // Use the sanitized appId in the path to prevent segment errors in preview
     const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'thoughts');
     const q = query(postsRef);
 
@@ -81,7 +96,7 @@ const App = () => {
         ...doc.data() 
       }));
       
-      // Sort in memory to avoid index errors in preview
+      // Sort in memory to avoid "missing index" errors in the preview environment
       fetchedPosts.sort((a, b) => {
         const timeA = a.createdAt?.toMillis() || 0;
         const timeB = b.createdAt?.toMillis() || 0;
@@ -91,7 +106,6 @@ const App = () => {
       setPosts(fetchedPosts);
     }, (err) => {
       console.error("Fetch error:", err);
-      // More specific error handling
       if (err.code === 'permission-denied') {
         setErrorMsg("Permissions error. Check database rules.");
       } else {
@@ -238,6 +252,7 @@ const App = () => {
                     </span>
                     <span className="text-xs text-slate-600 flex items-center gap-1">
                       <Clock size={12} />
+                      {/* Safe check for Timestamp before calling toDate() */}
                       {post.createdAt && typeof post.createdAt.toDate === 'function' 
                         ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) 
                         : 'Just now'}

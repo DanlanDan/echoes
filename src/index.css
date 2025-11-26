@@ -1,14 +1,8 @@
 @import "tailwindcss";
 
-@source "../index.html";
-@source "./**/*.{js,ts,jsx,tsx}";
-
-@theme {
-  --color-slate-950: #020617;
-  --color-slate-200: #e2e8f0;
-}
-
-/* This sets the global dark background */
 body {
-  @apply bg-slate-950 text-slate-200 antialiased;
+  background-color: #0f172a; /* bg-slate-950 */
+  color: #e2e8f0;           /* text-slate-200 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

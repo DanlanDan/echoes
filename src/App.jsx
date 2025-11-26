@@ -1,17 +1,9 @@
+javascript
 import React, { useState, useEffect } from 'react';
-import { 
-  Send, 
-  MessageSquare, 
-  Heart, 
-  Clock, 
-  Ghost,
-  Sparkles
-} from 'lucide-react';
+import { Send, MessageSquare, Heart, Clock, Ghost, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
-import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, 
   collection, 
   addDoc, 
   query, 
@@ -23,22 +15,12 @@ import {
   increment 
 } from 'firebase/firestore';
 import { 
-  getAuth, 
   signInAnonymously, 
-  onAuthStateChanged,
-  signInWithCustomToken
+  onAuthStateChanged
 } from 'firebase/auth';
 
-// --- Firebase Initialization (Preview Mode) ---
-// This block uses the chat environment's injected config.
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Fix for "Invalid collection reference" error in preview:
-const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const appId = rawAppId.replace(/[./]/g, '_'); 
+// --- IMPORT FROM YOUR LOCAL FILE ---
+import { db, auth } from './firebase'; 
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -48,18 +30,13 @@ const App = () => {
   const [isPosting, setIsPosting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // 1. Authentication
   useEffect(() => {
     const initAuth = async () => {
       try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        await signInAnonymously(auth);
       } catch (err) {
         console.error("Auth error:", err);
-        setErrorMsg("Authentication failed. Please refresh.");
+        setErrorMsg("Authentication failed. Check firebase.js config.");
       }
     };
     initAuth();
@@ -67,47 +44,28 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Real-time Data Feed
   useEffect(() => {
     if (!user) return;
-
-    const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'thoughts');
-    const q = query(postsRef);
-
+    const q = query(collection(db, "thoughts"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedPosts = snapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
-      
-      fetchedPosts.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis() || 0;
-        const timeB = b.createdAt?.toMillis() || 0;
-        return timeB - timeA;
-      });
-
-      setPosts(fetchedPosts);
+      setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => {
       console.error("Fetch error:", err);
       if (err.code === 'permission-denied') {
-        setErrorMsg("Permissions error. Check database rules.");
+        setErrorMsg("Permissions error. Check database rules in Firebase Console.");
       } else {
         setErrorMsg("Unable to load posts.");
       }
     });
-
     return () => unsubscribe();
   }, [user]);
 
-  // 3. Handle Submitting a Post
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newPost.trim() || !user) return;
-    
     setIsPosting(true);
     try {
-      const postsRef = collection(db, 'artifacts', appId, 'public', 'data', 'thoughts');
-      await addDoc(postsRef, {
+      await addDoc(collection(db, "thoughts"), {
         text: newPost,
         category,
         likes: 0,
@@ -123,14 +81,11 @@ const App = () => {
     setIsPosting(false);
   };
 
-  // 4. Handle Liking a Post
   const handleLike = async (id) => {
     if (!user) return;
     try {
-      const postRef = doc(db, 'artifacts', appId, 'public', 'data', 'thoughts', id);
-      await updateDoc(postRef, {
-        likes: increment(1)
-      });
+      const postRef = doc(db, "thoughts", id);
+      await updateDoc(postRef, { likes: increment(1) });
     } catch (err) {
       console.error("Like error:", err);
     }
@@ -149,7 +104,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-purple-500/30 font-sans">
-      {/* Navbar */}
       <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -164,18 +118,11 @@ const App = () => {
           </div>
         </div>
       </nav>
-
-      {/* Main Content */}
       <main className="pt-24 pb-20 px-6 max-w-2xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Share the Untold.
-          </h1>
-          <p className="text-slate-400">
-            A safe space to share your thoughts, confessions, and stories anonymously.
-          </p>
+          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Share the Untold.</h1>
+          <p className="text-slate-400">A safe space to share your thoughts, confessions, and stories anonymously.</p>
         </div>
-
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 mb-12 focus-within:border-purple-500/50 transition-colors shadow-xl">
           <form onSubmit={handleSubmit}>
             <textarea
@@ -185,7 +132,6 @@ const App = () => {
               className="w-full bg-transparent resize-none outline-none text-slate-200 placeholder-slate-500 min-h-[100px]"
               maxLength={280}
             />
-            
             <div className="flex justify-between items-center mt-4 border-t border-slate-800 pt-4">
               <select 
                 value={category}
@@ -197,7 +143,6 @@ const App = () => {
                 <option>Story</option>
                 <option>Vent</option>
               </select>
-
               <button 
                 type="submit" 
                 disabled={isPosting || !newPost.trim() || !user}
@@ -209,7 +154,6 @@ const App = () => {
             </div>
           </form>
         </div>
-
         <div className="space-y-6">
           <AnimatePresence>
             {posts.map((post) => (
@@ -228,19 +172,12 @@ const App = () => {
                     </span>
                     <span className="text-xs text-slate-600 flex items-center gap-1">
                       <Clock size={12} />
-                      {post.createdAt && typeof post.createdAt.toDate === 'function' 
-                        ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) 
-                        : 'Just now'}
+                      {post.createdAt && typeof post.createdAt.toDate === 'function' ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
                     </span>
                   </div>
-                  <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap mb-6">
-                    {post.text}
-                  </p>
+                  <p className="text-slate-300 text-lg leading-relaxed whitespace-pre-wrap mb-6">{post.text}</p>
                   <div className="flex items-center gap-6">
-                    <button 
-                      onClick={() => handleLike(post.id)}
-                      className="flex items-center gap-2 text-slate-500 hover:text-pink-500 transition-colors group/like"
-                    >
+                    <button onClick={() => handleLike(post.id)} className="flex items-center gap-2 text-slate-500 hover:text-pink-500 transition-colors group/like">
                       <Heart size={18} className={`transition-all ${post.likes > 0 ? 'text-pink-500 fill-pink-500/10' : 'group-hover/like:fill-pink-500'}`} />
                       <span className="text-sm font-medium">{post.likes || 0}</span>
                     </button>
@@ -253,14 +190,12 @@ const App = () => {
               </motion.div>
             ))}
           </AnimatePresence>
-          
           {posts.length === 0 && user && (
             <div className="text-center py-20 opacity-50">
               <Ghost size={48} className="mx-auto mb-4 text-slate-600" />
               <p>No echoes yet. Be the first to speak.</p>
             </div>
           )}
-
           {!user && (
              <div className="text-center py-20 text-slate-500">
                <Sparkles className="animate-spin mx-auto mb-2" />
